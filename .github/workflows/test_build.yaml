@@ -8,6 +8,16 @@ on:
 jobs:
   test_build:
     name: Test Image Build
+    # The called workflow's `merge` job requests these, and a called workflow can
+    # never hold more than its caller. Without this block the caller only gets
+    # the repository's default token, which is read-only, and the call is
+    # rejected before anything runs. Required even though push_enabled is false:
+    # `merge` declares them unconditionally.
+    permissions:
+      contents: read
+      packages: write
+      attestations: write
+      id-token: write
     uses: sdr-enthusiasts/common-github-workflows/.github/workflows/sdre.yml@4cf063e5906338b3b92f0fe71d8dbae52c180d99 # main
     with:
       push_enabled: false
