@@ -60,7 +60,7 @@ if [ -z "$RTLSDRAIRBAND_CUSTOMCONFIG" ]; then
 		sed -i "s/#squelch = 0; # device 1/squelch_snr_threshold = 0; # device 1/g" /usr/local/etc/rtl_airband.conf
 	fi
 
-	if [ -n "${LOG_SCANNED_ACTIVITY}" ]; then
+	if [ -n "${LOG_SCAN_ACTIVITY}" ]; then
 		sed -i "s/scan_activity = false; # device 1/scan_activity = true; # device 1/g" /usr/local/etc/rtl_airband.conf
 	fi
 
