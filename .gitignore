@@ -93,3 +93,6 @@ roles/metal-lb/files/namespace.yaml
 notes.txt
 .direnv
 .pre-commit-config.yaml
+
+# local deploy target for sync-source-to-host.sh (host names / paths stay out of git)
+sync.env
