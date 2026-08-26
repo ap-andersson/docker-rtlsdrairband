@@ -48,8 +48,20 @@ if [ "${1:-}" = "--no-restart" ]; then
 	exit 0
 fi
 
+# Runs a docker command on the sync host. Arguments are expanded here rather than
+# on the remote, which is the intent: they come from local configuration and are
+# meant to reach the remote shell as literals. They are requoted first, because
+# ssh joins its arguments into one string that the remote shell re-parses, which
+# would otherwise split any argument containing whitespace.
+# shellcheck disable=SC2029
+remote_docker() {
+	local quoted
+	quoted="$(printf ' %q' "$@")"
+	ssh "${SYNC_HOST}" "docker${quoted}"
+}
+
 echo "==> Restarting ${SYNC_CONTAINER} (recompiles on start)"
-ssh "${SYNC_HOST}" "docker restart '${SYNC_CONTAINER}'"
+remote_docker restart "${SYNC_CONTAINER}"
 
 echo "==> Following the build; ctrl-c when you have seen enough"
-exec ssh "${SYNC_HOST}" "docker logs -f --since 10s '${SYNC_CONTAINER}'"
+remote_docker logs -f --since 10s "${SYNC_CONTAINER}"
