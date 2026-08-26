@@ -1,11 +1,17 @@
 FROM ghcr.io/sdr-enthusiasts/docker-baseimage:soapy-full
 
+# Source tree that gets compiled into the image. Override at build time with
+# --build-arg, or via the deploy workflow's dockerfile_changes input, to build a
+# different fork or ref. A ref has to be named explicitly: this fork carries no
+# tags, so the previous "newest tag" lookup has nothing to resolve.
+ARG RTLSDRAIRBAND_REPO="https://github.com/ap-andersson/RTLSDR-Airband.git"
+ARG RTLSDRAIRBAND_REF="main"
+
 # ICECAST_ADMIN_PASSWORD is a placeholder default that the user overrides with
 # their own Icecast admin password at run time. Supplying it via the environment
 # is inherent to how this image is configured, so DL3064 is not actionable here.
 # hadolint ignore=DL3064
-ENV BRANCH_RTLSDR="ed0317e6a58c098874ac58b769cf2e609c18d9a5" \
-    S6_BEHAVIOUR_IF_STAGE2_FAILS=2 \
+ENV S6_BEHAVIOUR_IF_STAGE2_FAILS=2 \
     ## Both services
     PORT="8000" \
     ## Icecast
@@ -241,15 +247,15 @@ RUN set -x && \
     make install && \
     popd && popd && \
     ldconfig && \
-    # Get rtl_airband source (compiled on first run via /etc/cont-init.d/01-build-rtl_airband)
-    git clone https://github.com/rtl-airband/RTLSDR-Airband.git /opt/rtlsdr-airband && \
+    # Get rtl_airband source (compiled further down by /scripts/build-rtl_airband.sh)
+    git clone --branch "$RTLSDRAIRBAND_REF" "$RTLSDRAIRBAND_REPO" /opt/rtlsdr-airband && \
     pushd /opt/rtlsdr-airband && \
-    BRANCH_RTL_AIRBAND=$(git tag | tail -1) && \
-    git reset --hard "$BRANCH_RTL_AIRBAND" && \
-    # fix build by removing -Wall  from CFLAGS in CMakeLists.txt
-    sed -i 's/-Wall -Wextra/-Wno-error/g' CMakeLists.txt && \
+    git describe --tags --always > /CONTAINER_VERSION && \
+    # Relax the upstream warnings-as-errors so an image build cannot be broken by
+    # a compiler bump. -Werror is also stripped: it sits at the end of the same
+    # CMAKE_CXX_FLAGS line and the -Wall -Wextra substitution alone leaves it.
+    sed -i 's/ -Werror//g; s/-Wall -Wextra/-Wno-error/g' CMakeLists.txt && \
     sed -i 's/set (CMAKE_COMPILE_WARNING_AS_ERROR ON)/set (CMAKE_COMPILE_WARNING_AS_ERROR OFF)/g' CMakeLists.txt && \
-    echo "$BRANCH_RTL_AIRBAND" > /CONTAINER_VERSION && \
     popd && \
     # Clean up
     apt-get remove -y ${TEMP_PACKAGES[@]} && \
