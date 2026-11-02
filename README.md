@@ -80,7 +80,41 @@ environment:
   - PORT=9000
 ```
 
-Port 8001 is the default port used when `ENABLE_PROMETHEUS` is set. To use another port, set the `PROMETHEUS_PORT` env variable to the desired port. If `ENABLE_PROMETHEUS` is set to any value, Prometheus formatted [metrics](https://github.com/szpajder/RTLSDR-Airband/wiki/Channel-usage-statistics) will be exposed at `containerip:PROMETHEUS_PORT`.
+Port 8001 is the default port used when `ENABLE_PROMETHEUS` is set. To use another port, set the `PROMETHEUS_PORT` env variable to the desired port. If `ENABLE_PROMETHEUS` is set to any value, Prometheus formatted [metrics](https://github.com/rtl-airband/RTLSDR-Airband/wiki/Channel-usage-statistics) will be exposed at `containerip:PROMETHEUS_PORT`. Metrics are disabled by default.
+
+When using [RTLSDR-Airband Advanced Mode](#rtlsdir-airband-advanced-mode), add `stats_filepath = "/tmp/rtl_airband_stats.txt";` to the top of your `rtl_airband.conf` so there is something to serve.
+
+### Metrics
+
+The stats file is rewritten every 15 seconds. All counters and histograms are cumulative, so nothing is lost with a longer scrape interval.
+
+Besides the existing per-channel gauges and counters (`channel_*_level`, `channel_squelch_counter`, etc.) the following are exported:
+
+| Metric | Type | Description |
+| ------ | ---- | ----------- |
+| `channel_transmission_snr_db` | histogram | Peak level of each transmission relative to the noise floor when squelch opened, 3 to 60 dB in 3 dB steps. |
+| `channel_transmission_duration_seconds` | histogram | Duration of each transmission. `_sum` is the total airtime. |
+| `channel_dbfs_squelch_level` | gauge | Squelch threshold in dBFS, comparable with `channel_dbfs_noise_level`. |
+| `device_samples_total` | counter | I/Q samples read (8-bit devices such as RTL-SDR). |
+| `device_clipped_samples_total` | counter | I/Q samples at the ADC rails. If this rises, the gain is too high. |
+| `device_input_power_sum_total` | counter | Sum of input power, full scale = 1.0. |
+| `rtl_airband_build_info` | gauge | Always 1, with a `version` label. |
+
+Example queries:
+
+```promql
+# Transmissions per hour, per channel
+increase(channel_transmission_duration_seconds_count[1h])
+
+# Median SNR per channel over the last day
+histogram_quantile(0.5, sum by (freq, label, le) (rate(channel_transmission_snr_db_bucket[1d])))
+
+# Share of ADC samples clipped - should be (close to) 0
+rate(device_clipped_samples_total[5m]) / rate(device_samples_total[5m])
+
+# Mean input power in dBFS
+10 * log10(rate(device_input_power_sum_total[5m]) / rate(device_samples_total[5m]))
+```
 
 ## Volumes
 
